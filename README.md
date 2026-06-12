@@ -23,6 +23,15 @@ These materials complement the course case studies (AetherScale, MedData, SwiftP
   - [Lab 9 — Searching for SUID and SGID Files](#lab-9--searching-for-suid-and-sgid-files)
   - [Lab 10 — Extended File Attributes](#lab-10--extended-file-attributes)
   - [Lab 11 — Shared Group Directory](#lab-11--shared-group-directory)
+  - [Lab 12 — SELinux Type Enforcement](#lab-12--selinux-type-enforcement)
+  - [Lab 13 — SELinux Booleans and Ports](#lab-13--selinux-booleans-and-ports)
+  - [Lab 14 — Basic iptables Usage](#lab-14--basic-iptables-usage)
+  - [Lab 15 — Blocking Invalid IPv4 Packets](#lab-15--blocking-invalid-ipv4-packets)
+  - [Lab 16 — ip6tables](#lab-16--ip6tables)
+  - [Lab 17 — Squid ACL Configuration](#lab-17--squid-acl-configuration)
+  - [Lab 18 — Firewall and DMZ Rules](#lab-18--firewall-and-dmz-rules)
+  - [Lab 19 — nftables on Ubuntu](#lab-19--nftables-on-ubuntu)
+  - [Lab 20 — Basic UFW Usage](#lab-20--basic-ufw-usage)
 - [Suggested Learning Path](#suggested-learning-path)
 - [Operating System Summary](#operating-system-summary)
 - [Related Resources](#related-resources)
@@ -41,8 +50,11 @@ The labs are organized around core IAM themes:
 | **Authentication hardening** | 7 | PAM, account lockout, brute-force mitigation |
 | **Centralized identity** | 8 | FreeIPA, Kerberos, LDAP, ADSys |
 | **File permissions & auditing** | 9, 10, 11 | SUID/SGID, extended attributes, groups, ACLs, sticky bit |
+| **Mandatory access control (SELinux)** | 12, 13 | Type enforcement, port labeling, `semanage` |
+| **Network access control** | 14, 15, 16, 18, 19, 20 | iptables, ip6tables, nftables, UFW, DMZ design |
+| **Application-layer proxy** | 17 | Squid ACLs, `http_access`, domain filtering |
 
-Each lab file (`01.md`–`11.md`) follows a consistent structure:
+Each lab file (`01.md`–`20.md`) follows a consistent structure:
 
 1. **Objective** — what you will learn and why it matters
 2. **Environment** — target OS and tools
@@ -59,8 +71,11 @@ Each lab file (`01.md`–`11.md`) follows a consistent structure:
 - Basic command-line familiarity (`cd`, `ls`, text editors, package managers)
 - Network access where noted (Lab 6 uses the Have I Been Pwned API)
 - For Lab 8: a dedicated AlmaLinux 9 host with a resolvable hostname and sufficient RAM for FreeIPA (~2 GB minimum recommended)
+- For Labs 14–16: an Ubuntu 22.04 VM with Nmap available on a second host; take snapshots before firewall labs
+- For Lab 17: an Ubuntu Server VM plus client VMs on the same subnet
+- For Labs 12–13: CentOS 7 or AlmaLinux with Apache and SELinux in enforcing mode
 
-**Recommended setup:** Use separate VMs or snapshots per lab when possible, especially for Labs 7 and 8, which modify PAM and install identity services.
+**Recommended setup:** Use separate VMs or snapshots per lab when possible, especially for Labs 7, 8, and 14–20, which modify PAM, install identity services, or reconfigure firewalls.
 
 ---
 
@@ -192,19 +207,116 @@ Create the `sales` group and users (`mimi`, `mrgray`, `mommy`), build a shared d
 
 ---
 
+### Lab 12 — SELinux Type Enforcement
+
+**File:** [`12.md`](12.md) · **OS:** CentOS 7 / AlmaLinux 8–9 · **Tools:** `httpd`, `chcon`, `restorecon`, `ls -Z`
+
+Install Apache and SELinux tools, create a test web page, then change the file context to `tmp_t` and observe a browser **Forbidden** error. Restore the correct context with `restorecon`.
+
+**Key concepts:** SELinux type enforcement, security contexts, `httpd_sys_content_t`, `chcon` vs. `restorecon`.
+
+---
+
+### Lab 13 — SELinux Booleans and Ports
+
+**File:** [`13.md`](13.md) · **OS:** CentOS 7 / AlmaLinux 8–9 · **Tools:** `semanage`, `httpd`, `/var/log/messages`
+
+View ports Apache may bind to, change Apache to listen on port 82, diagnose the SELinux denial, authorize the port with `semanage port`, then restore the default configuration.
+
+**Key concepts:** SELinux port labeling, `http_port_t`, `semanage port`, service bind failures.
+
+---
+
+### Lab 14 — Basic iptables Usage
+
+**File:** [`14.md`](14.md) · **OS:** Ubuntu 22.04 · **Tools:** `iptables`, `iptables-persistent`, UFW
+
+Disable UFW, build a default-deny firewall allowing SSH, DNS, ICMP, and loopback traffic, then persist rules across reboots with `iptables-persistent`.
+
+**Key concepts:** default-deny policy, `iptables -P`, connection tracking, rule persistence.
+
+---
+
+### Lab 15 — Blocking Invalid IPv4 Packets
+
+**File:** [`15.md`](15.md) · **OS:** Ubuntu 22.04 · **Tools:** `iptables` (mangle table), `nmap`
+
+Extend the Lab 14 firewall with mangle `PREROUTING` rules to drop invalid packets. Use Nmap NULL and Windows scans to verify which rules are triggered.
+
+**Key concepts:** mangle table, `ctstate INVALID`, stealth scan mitigation, packet counters.
+
+---
+
+### Lab 16 — ip6tables
+
+**File:** [`16.md`](16.md) · **OS:** Ubuntu 22.04 · **Tools:** `ip6tables`, `nmap -6`
+
+Configure IPv6 invalid-packet filtering independently of IPv4. Test with Nmap Windows and XMAS scans against the VM's IPv6 address.
+
+**Key concepts:** dual-stack firewalls, `ip6tables-save`, IPv6 scan testing.
+
+---
+
+### Lab 17 — Squid ACL Configuration
+
+**File:** [`17.md`](17.md) · **OS:** Ubuntu Server 22.04 (+ client VMs) · **Tools:** Squid, `http_access`, `curl`
+
+Deploy a Squid proxy with ACLs by source network, destination domain, and time. Test allow/deny behavior from Ubuntu, AlmaLinux, and CentOS clients.
+
+**Key concepts:** proxy ACLs, `dstdomain`, `http_access` rule order, application-layer filtering.
+
+---
+
+### Lab 18 — Firewall and DMZ Rules
+
+**File:** [`18.md`](18.md) · **OS:** Any Linux gateway VM · **Tools:** iptables (reference scripts)
+
+Study and explain three firewall architectures: simple perimeter, DMZ with DNAT, and transparent Squid proxy gateway. Adapt the designs to your lab network.
+
+**Key concepts:** DMZ design, SNAT/DNAT, transparent proxy, layered defense.
+
+---
+
+### Lab 19 — nftables on Ubuntu
+
+**File:** [`19.md`](19.md) · **OS:** Ubuntu 22.04 · **Tools:** `nft`, `nmap`, `/var/log/kern.log`
+
+Build a workstation nftables ruleset from the Ubuntu template with prerouting invalid-packet drops. Verify with Nmap scans and kernel log entries.
+
+**Key concepts:** nftables syntax, hook priorities, `ct state invalid`, modern firewall backend.
+
+---
+
+### Lab 20 — Basic UFW Usage
+
+**File:** [`20.md`](20.md) · **OS:** Ubuntu 22.04 · **Tools:** `ufw`, iptables/nftables
+
+Enable UFW on a clean VM, open SSH and DNS ports, and inspect how UFW translates commands into backend firewall rules. Explore `/etc/ufw/` configuration files.
+
+**Key concepts:** UFW abstraction, `ufw allow`, `before.rules`, firewall front end vs. backend.
+
+---
+
 ## Suggested Learning Path
 
 Labs are numbered in a logical progression. Follow them in order when possible:
 
 ```
-Labs 1–2  →  sudo & privilege control
-Labs 3–6  →  user accounts, passwords & credentials
-Lab 7     →  authentication lockout (PAM)
-Lab 8     →  centralized identity (FreeIPA)
-Labs 9–11 →  file permissions, auditing & shared access
+Labs 1–2   →  sudo & privilege control
+Labs 3–6   →  user accounts, passwords & credentials
+Lab 7      →  authentication lockout (PAM)
+Lab 8      →  centralized identity (FreeIPA)
+Labs 9–11  →  file permissions, auditing & shared access
+Labs 12–13 →  SELinux (type enforcement & ports)
+Labs 14–16 →  iptables / ip6tables (use same Ubuntu VM + snapshots)
+Lab 17     →  Squid proxy ACLs
+Lab 18     →  firewall architecture (theory + adaptation)
+Labs 19–20 →  nftables and UFW (restore snapshot between)
 ```
 
 Within the password/credential block (3–6), the recommended sequence is: encryption → complexity → expiry → breach checking.
+
+Labs 14, 15, and 16 share one Ubuntu VM. Take a snapshot at the end of Lab 14 and restore it after Lab 16. Labs 19 and 20 each start from a clean snapshot.
 
 ---
 
@@ -213,8 +325,10 @@ Within the password/credential block (3–6), the recommended sequence is: encry
 | Lab | Distribution | Version |
 |-----|--------------|---------|
 | 1, 2, 8 | AlmaLinux | 9 |
-| 3, 4, 5, 6, 9, 10, 11 | Ubuntu | 22.04 |
-| 7 | CentOS | 7 |
+| 3, 4, 5, 6, 9, 10, 11, 14, 15, 16, 19, 20 | Ubuntu | 22.04 |
+| 7, 12, 13 | CentOS / AlmaLinux | 7 / 8–9 |
+| 17 (proxy) | Ubuntu Server | 22.04 |
+| 17 (clients) | Ubuntu, AlmaLinux, CentOS | 22.04 / 9 / 7 |
 
 Use snapshots or separate VMs when switching between distributions.
 
@@ -223,7 +337,9 @@ Use snapshots or separate VMs when switching between distributions.
 ## Related Resources
 
 - [Parent project README](../README.md) — lab report generator (`build_report.py`, `convert_to_pdf.py`)
-- Course slides and additional materials: `2026_Identity and Access Management/` (parent directory)
+- Course lab slides: [`Hands-on Labs_.pdf`](../2026_Identity%20and%20Access%20Management/Hands-on%20Labs_.pdf)
+- Course materials folder: `2026_Identity and Access Management/`
+- Transparent proxy reference script: `2026_Identity and Access Management/fw.proxy.txt`
 - Case study scenarios: `case studies Tchakounte (2).pdf`
 
 ---
